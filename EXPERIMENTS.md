@@ -95,12 +95,6 @@ def spectral_smoothness(actions):          # actions: (T, act_dim)
     return float(np.mean(2.0 / n * np.sum(freqs * mags, axis=0)))
 ```
 
-- Pendulum only: relative score vs the PAVE-TD3 reference
-  (`reward0 = -156.1981`, `smooth0 = 0.340948`):
-  `score = min(reward_gain%, smooth_gain%)` where
-  `reward_gain% = (reward - reward0)/|reward0|*100`,
-  `smooth_gain% = (smooth0 - smooth)/smooth0*100`.
-
 ## 7. Running the experiments
 
 Ready-to-run trainers live under `experiments/<env>/`. They read
