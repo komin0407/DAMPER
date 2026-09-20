@@ -6,7 +6,7 @@ DAMPER reduces action oscillation by combining the native actor gradient with a 
 
 [Overview PDF](figures/DAMPER_overview_v4.pdf) · [Method](#method) · [Results](#results) · [Quick start](#quick-start) · [Reproduction](#reproducing-the-experiments)
 
-[![DAMPER overview: native actor and temporal-consistency gradients pass through conflict-conditioned projection and adaptive magnitude control before the actor update.](figures/damper_overview.png)](figures/damper_overview.pdf)
+[![DAMPER overview: native actor and temporal-consistency gradients pass through conflict-conditioned projection and adaptive magnitude control before the actor update.](figures/damper_overview.png)](figures/DAMPER_overview_v4.pdf)
 
 *The native actor gradient supplies the primary direction. DAMPER projects the temporal gradient only under conflict, controls its magnitude relative to the native gradient, and passes the merged gradient to the actor optimizer. Click the figure for the vector PDF.*
 
