@@ -20,7 +20,7 @@ from models.aqfr_td3 import AQFRTD3
 from models.asap_td3 import ASAPTD3, ASAPPolicy
 from models.sr2l import *
 from models.pave_td3 import PaveTD3
-from models.rptgs_td3 import RPTGSTD3
+from models.damper_td3 import DAMPERTD3
 
 def train_vanilla(seed:int, total_time_steps:int, save_dir:str, log_dir:str, 
                   mkenv_func : Callable, env_args:dict, alg_args:dict, device: str = 'auto'):
@@ -194,13 +194,13 @@ def train_caps(seed:int, total_time_steps:int, save_dir:str, log_dir:str,
     vec_env.close()
     del model
 
-def train_rptgs(seed:int, total_time_steps:int, save_dir:str, log_dir:str,
+def train_damper(seed:int, total_time_steps:int, save_dir:str, log_dir:str,
                   mkenv_func : Callable, env_args:dict, alg_args:dict, device: str = 'auto'):
     if not os.path.exists(save_dir):
         os.makedirs(save_dir)
 
     # save dir 변경
-    local_save_dir = os.path.join(save_dir, f"rptgs_td3_{seed}")
+    local_save_dir = os.path.join(save_dir, f"damper_td3_{seed}")
     if not os.path.exists(local_save_dir):
         os.makedirs(local_save_dir)
 
@@ -224,12 +224,12 @@ def train_rptgs(seed:int, total_time_steps:int, save_dir:str, log_dir:str,
     action_noise = NormalActionNoise(mean=mean, sigma=sigma)
     td3_args = {k: v for k, v in env_args.items() if k != "n_envs" and k != "exploration_noise"}
     td3_args.update(alg_args)
-    model = RPTGSTD3("MlpPolicy", vec_env, verbose=0, tensorboard_log=log_dir, seed=seed,
+    model = DAMPERTD3("MlpPolicy", vec_env, verbose=0, tensorboard_log=log_dir, seed=seed,
                       device=device, action_noise=action_noise, **td3_args)
     # 강제 저장
     model.save(os.path.join(local_save_dir, 'mid_00000_steps'))
 
-    model.learn(total_timesteps=total_time_steps, tb_log_name=f"RPTGS_TD3_{seed}",
+    model.learn(total_timesteps=total_time_steps, tb_log_name=f"DAMPER_TD3_{seed}",
                 callback=checkpoint_callback)
     #save file 이름
     save_name = os.path.join(local_save_dir, f"final")

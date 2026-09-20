@@ -1,6 +1,6 @@
-# RPTGS Experiment Specification
+# DAMPER Experiment Specification
 
-Full reproduction spec for the RPTGS experiments (return-priority temporal
+Full reproduction spec for the DAMPER experiments (return-priority temporal
 gradient surgery on TD3 / SAC). Everything below is exactly what produced the
 reference numbers in the results tables.
 
@@ -27,13 +27,13 @@ All models live in `td3/models/` and `sac/models/`:
 
 | Variant | TD3 class | SAC class | Merge geometry |
 |---|---|---|---|
-| norm-balanced (original RPTGS) | `RPTGSTD3` (`rptgs_td3.py`) | `RPTGSSAC` (`rptgs_sac.py`) | both gradients normalized, merged at equal weight |
-| cap-only | `RPTGSCapTD3` (`rptgs_cap_td3.py`) | `RPTGSCapSAC` (`rptgs_cap_sac.py`) | temporal keeps raw norm, capped at return norm, never amplified |
-| alignment-adaptive (exploratory) | — | `RPTGSAdaSAC` (`rptgs_ada_sac.py`) | amplification gated by gradient cosine |
-| **unified (interpolated)** | `RPTGSUnifiedTD3` (`rptgs_unified_td3.py`) | `RPTGSUnifiedSAC` (`rptgs_unified_sac.py`) | single knob `eta` in [0,1]; `eta=0` == cap-only, `eta=1` == norm-balanced (verified numerically) |
+| norm-balanced (original DAMPER) | `DAMPERTD3` (`damper_td3.py`) | `DAMPERSAC` (`damper_sac.py`) | both gradients normalized, merged at equal weight |
+| cap-only | `DAMPERCapTD3` (`damper_cap_td3.py`) | `DAMPERCapSAC` (`damper_cap_sac.py`) | temporal keeps raw norm, capped at return norm, never amplified |
+| alignment-adaptive (exploratory) | — | `DAMPERAdaSAC` (`damper_ada_sac.py`) | amplification gated by gradient cosine |
+| **unified (interpolated)** | `DAMPERUnifiedTD3` (`damper_unified_td3.py`) | `DAMPERUnifiedSAC` (`damper_unified_sac.py`) | single knob `eta` in [0,1]; `eta=0` == cap-only, `eta=1` == norm-balanced (verified numerically) |
 
 Per-environment trainers for every variant, including the unified one
-(`train_rptgs_unified_{sac,td3}_<env>.py`), live under `experiments/<env>/`.
+(`train_damper_unified_{sac,td3}_<env>.py`), live under `experiments/<env>/`.
 
 ## 3. Hyperparameters (identical across ALL environments and backbones)
 
@@ -46,7 +46,7 @@ Per-environment trainers for every variant, including the unified one
 | tau | 0.005 | |
 | gamma | 0.99 | |
 | train_freq / gradient_steps | 1 / 1 | |
-| activation | **SiLU** | forced inside every RPTGS class |
+| activation | **SiLU** | forced inside every DAMPER class |
 | net_arch | SB3 default — TD3 `[400,300]`, SAC `[256,256]` | never overridden |
 | **train seed** | **20260718** | multi-seed runs add: 410580, 922852, 787576, 660993 |
 
@@ -110,10 +110,10 @@ inside the environment directory**:
 
 ```bash
 cd experiments/hopper
-python train_rptgs_sac_hopper.py      --max_minutes 420 --run_name sac_nb   --train_seed 20260718
-python train_rptgs_cap_sac_hopper.py  --max_minutes 420 --run_name sac_cap  --train_seed 20260718
-python train_rptgs_td3_hopper.py      --max_minutes 420 --run_name td3_nb   --train_seed 20260718
-python train_rptgs_cap_td3_hopper.py  --max_minutes 420 --run_name td3_cap  --train_seed 20260718
+python train_damper_sac_hopper.py      --max_minutes 420 --run_name sac_nb   --train_seed 20260718
+python train_damper_cap_sac_hopper.py  --max_minutes 420 --run_name sac_cap  --train_seed 20260718
+python train_damper_td3_hopper.py      --max_minutes 420 --run_name td3_nb   --train_seed 20260718
+python train_damper_cap_td3_hopper.py  --max_minutes 420 --run_name td3_cap  --train_seed 20260718
 python score_hopper.py runs/sac_nb/results.json "label"
 ```
 
@@ -122,9 +122,9 @@ Unified (interpolated) trainers take a required `--eta` flag and record it in
 norm-balanced runs above (verified numerically to float32 rounding):
 
 ```bash
-python train_rptgs_unified_sac_hopper.py --max_minutes 420 --run_name sac_eta05 \
+python train_damper_unified_sac_hopper.py --max_minutes 420 --run_name sac_eta05 \
     --train_seed 20260718 --eta 0.5
-python train_rptgs_unified_td3_hopper.py --max_minutes 420 --run_name td3_eta05 \
+python train_damper_unified_td3_hopper.py --max_minutes 420 --run_name td3_eta05 \
     --train_seed 20260718 --eta 0.5
 ```
 
@@ -138,8 +138,8 @@ Notes:
 - The unified variant is used the same way in your own script:
 
 ```python
-from sac.models.rptgs_unified_sac import RPTGSUnifiedSAC
-model = RPTGSUnifiedSAC("MlpPolicy", env, learning_rate=3e-4,
+from sac.models.damper_unified_sac import DAMPERUnifiedSAC
+model = DAMPERUnifiedSAC("MlpPolicy", env, learning_rate=3e-4,
                         seed=20260718, eta=0.5)   # eta in [0,1]
 ```
 
@@ -161,7 +161,7 @@ are environment-simulation-bound, so GPU speedup is modest.
 | Walker2d | 5557.91 / 0.2420 | 4950.72 / 0.5117 |
 | Ant | 939.10 / 0.0015 (standing collapse) | 5361.89 / 1.4118 |
 
-Ant, alignment-adaptive (`RPTGSAdaSAC`): 3097.25 / 0.8852.
+Ant, alignment-adaptive (`DAMPERAdaSAC`): 3097.25 / 0.8852.
 
 ### TD3 backbone
 
@@ -174,7 +174,7 @@ Ant, alignment-adaptive (`RPTGSAdaSAC`): 3097.25 / 0.8852.
 | Walker2d | 4090.95 / 0.3889 | 4320.66 / 0.6985 |
 | Ant | 4646.98 / 0.8279 | 4712.27 / 1.2712 |
 
-Pendulum multi-seed (5 seeds, TD3): RPTGS mean reward -158.09 / smooth 0.3956
+Pendulum multi-seed (5 seeds, TD3): DAMPER mean reward -158.09 / smooth 0.3956
 (score mean -17.05) vs measured PAVE-TD3 -162.27 / 0.4010 (score mean -17.62).
 
 Key observations:

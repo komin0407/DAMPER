@@ -1,10 +1,17 @@
 #!/usr/bin/env python3
-"""PAVE-TD3 baseline trainer for Pendulum-v1, matching the DAMPER eval protocol.
+"""DAMPER-SAC trainer using the SB3-based PAVE/sac/models/damper_sac.py implementation.
 
-Reproduces the measured PAVE baseline (reward0=-156.1981, smooth0=0.340948)
-under the exact same evaluation harness as train_damper.py, so both methods are
-compared head-to-head on this run's own GPU rather than trusting a number
-measured elsewhere.
+SAC counterpart of train_damper_sb3.py (the TD3 version): same return-priority,
+norm-balanced two-task PCGrad on the actor, but on top of SB3's SAC backbone.
+
+Conditions kept identical to the TD3 Pendulum runs where the two backbones
+share a hyperparameter:
+  - SiLU activation (forced by DAMPERUnifiedSAC.__init__)
+  - net_arch [256, 256] (SB3 SAC default)
+  - learning_rate=3e-4 (SB3 SAC default, same value the TD3 runs used)
+  - learning_starts=100, batch_size=256, tau=0.005, gamma=0.99 (SB3 defaults)
+SAC-specific parts stay standard: auto entropy tuning, stochastic actor with
+no external exploration noise, actor updated every step (no policy delay).
 """
 from __future__ import annotations
 
@@ -19,22 +26,11 @@ import numpy as np
 import torch as th
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[2]))
-from td3.models.pave_td3 import PaveTD3  # noqa: E402
-from stable_baselines3.common.noise import NormalActionNoise
+from sac.models.damper_unified_sac import DAMPERUnifiedSAC  # noqa: E402
 from stable_baselines3.common.vec_env import DummyVecEnv, VecMonitor
 
-TRAIN_SEED = 178132
+TRAIN_SEED = 20260718
 FULL_TRAIN_STEPS = 100_000
-
-# PAVE's own Pendulum hyperparameters (td3/tests/modules/params.py, and
-# secret/reference.py's documented baseline measurement).
-PAVE_KWARGS = dict(
-    grad_lamS=2.0,
-    grad_lamT=0.005,
-    grad_lamC=2.0,
-    grad_sigma=0.01,
-    grad_delta=1.0,
-)
 
 
 def read_public_inputs() -> tuple[str, list[int]]:
@@ -49,7 +45,7 @@ def read_public_inputs() -> tuple[str, list[int]]:
 
 
 @th.no_grad()
-def evaluate_policy(env_id: str, model: PaveTD3, validation_seeds: list[int]) -> list[dict[str, object]]:
+def evaluate_policy(env_id: str, model: DAMPERUnifiedSAC, validation_seeds: list[int]) -> list[dict[str, object]]:
     env = gym.make(env_id)
     episodes: list[dict[str, object]] = []
     try:
@@ -81,6 +77,8 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument("--max_minutes", type=float, required=True)
     parser.add_argument("--run_name", type=str, required=True)
     parser.add_argument("--train_seed", type=int, default=TRAIN_SEED)
+    parser.add_argument("--eta", type=float, required=True,
+                        help="DAMPER interpolation: 0=cap-only, 1=norm-balanced")
     args = parser.parse_args()
     if not np.isfinite(args.max_minutes) or args.max_minutes <= 0.0:
         parser.error("--max_minutes must be a positive finite number")
@@ -109,18 +107,16 @@ def main() -> None:
 
     vec_env = DummyVecEnv([make_env()])
     vec_env = VecMonitor(vec_env)
-    action_dim = vec_env.action_space.shape[0]
-    action_noise = NormalActionNoise(mean=np.zeros(action_dim), sigma=0.1 * np.ones(action_dim))
 
     device = th.device("cuda" if th.cuda.is_available() else "cpu")
-    model = PaveTD3(
+    model = DAMPERUnifiedSAC(
         "MlpPolicy",
         vec_env,
+        learning_rate=3e-4,
+        eta=args.eta,
         verbose=0,
         seed=train_seed,
         device=device,
-        action_noise=action_noise,
-        **PAVE_KWARGS,
     )
 
     model.learn(total_timesteps=max_steps)
@@ -136,9 +132,10 @@ def main() -> None:
     artifact_path.parent.mkdir(parents=True, exist_ok=True)
     output = {
         "env_id": env_id,
-        "backbone": "TD3",
-        "method": "PAVE",
+        "backbone": "SAC",
+        "method": "DAMPER-Unified-SAC",
         "train_seed": train_seed,
+        "eta": args.eta,
         "episodes": episodes,
     }
     with artifact_path.open("w", encoding="utf-8") as handle:

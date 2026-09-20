@@ -1,10 +1,12 @@
 #!/usr/bin/env python3
-"""PAVE-TD3 baseline trainer for Pendulum-v1, matching the DAMPER eval protocol.
+"""DAMPER-SAC (PAVE/sac/models/damper_sac.py) on Reacher-v5.
 
-Reproduces the measured PAVE baseline (reward0=-156.1981, smooth0=0.340948)
-under the exact same evaluation harness as train_damper.py, so both methods are
-compared head-to-head on this run's own GPU rather than trusting a number
-measured elsewhere.
+Identical hyperparameters to the Pendulum SAC run (train_damper_sac.py): same
+DAMPERUnifiedSAC class (return-priority, norm-balanced two-task PCGrad on the actor;
+SiLU forced; net_arch [256,256] SB3 SAC default), same learning_rate=3e-4,
+same SB3 SAC defaults for buffer_size/learning_starts/gamma/train_freq. Only
+the environment and total_timesteps change (500_000 for Reacher vs 100_000
+for Pendulum, matching PAVE's Reacher schedule and the DAMPER-TD3 Reacher run).
 """
 from __future__ import annotations
 
@@ -19,38 +21,33 @@ import numpy as np
 import torch as th
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[2]))
-from td3.models.pave_td3 import PaveTD3  # noqa: E402
-from stable_baselines3.common.noise import NormalActionNoise
+from sac.models.damper_unified_sac import DAMPERUnifiedSAC  # noqa: E402
 from stable_baselines3.common.vec_env import DummyVecEnv, VecMonitor
 
-TRAIN_SEED = 178132
-FULL_TRAIN_STEPS = 100_000
-
-# PAVE's own Pendulum hyperparameters (td3/tests/modules/params.py, and
-# secret/reference.py's documented baseline measurement).
-PAVE_KWARGS = dict(
-    grad_lamS=2.0,
-    grad_lamT=0.005,
-    grad_lamC=2.0,
-    grad_sigma=0.01,
-    grad_delta=1.0,
-)
+ENV_ID = "Reacher-v5"
+TRAIN_SEED = 20260718
+FULL_TRAIN_STEPS = 500_000
 
 
-def read_public_inputs() -> tuple[str, list[int]]:
-    env_id = Path("data/env_id.txt").read_text(encoding="utf-8").strip()
+def make_env():
+    def _init():
+        return gym.make(ENV_ID)
+    return _init
+
+
+def read_validation_seeds() -> list[int]:
     seed_lines = Path("data/validation_seeds.txt").read_text(
         encoding="utf-8"
     ).splitlines()
     validation_seeds = [int(line.strip()) for line in seed_lines if line.strip()]
     if not validation_seeds:
         raise RuntimeError("data/validation_seeds.txt contains no seeds")
-    return env_id, validation_seeds
+    return validation_seeds
 
 
 @th.no_grad()
-def evaluate_policy(env_id: str, model: PaveTD3, validation_seeds: list[int]) -> list[dict[str, object]]:
-    env = gym.make(env_id)
+def evaluate_policy(model: DAMPERUnifiedSAC, validation_seeds: list[int]) -> list[dict[str, object]]:
+    env = gym.make(ENV_ID)
     episodes: list[dict[str, object]] = []
     try:
         for seed in validation_seeds:
@@ -81,6 +78,8 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument("--max_minutes", type=float, required=True)
     parser.add_argument("--run_name", type=str, required=True)
     parser.add_argument("--train_seed", type=int, default=TRAIN_SEED)
+    parser.add_argument("--eta", type=float, required=True,
+                        help="DAMPER interpolation: 0=cap-only, 1=norm-balanced")
     args = parser.parse_args()
     if not np.isfinite(args.max_minutes) or args.max_minutes <= 0.0:
         parser.error("--max_minutes must be a positive finite number")
@@ -95,32 +94,25 @@ def main() -> None:
     train_seed = args.train_seed
     started = time.monotonic()
     total_seconds = args.max_minutes * 60.0
-    reserve_seconds = min(30.0, max(8.0, total_seconds * 0.1))
+    reserve_seconds = min(60.0, max(15.0, total_seconds * 0.05))
     train_deadline = started + max(0.0, total_seconds - reserve_seconds)
     smoke = args.max_minutes <= 2.01
     max_steps = 1_500 if smoke else FULL_TRAIN_STEPS
 
-    env_id, validation_seeds = read_public_inputs()
-
-    def make_env():
-        def _init():
-            return gym.make(env_id)
-        return _init
+    validation_seeds = read_validation_seeds()
 
     vec_env = DummyVecEnv([make_env()])
     vec_env = VecMonitor(vec_env)
-    action_dim = vec_env.action_space.shape[0]
-    action_noise = NormalActionNoise(mean=np.zeros(action_dim), sigma=0.1 * np.ones(action_dim))
 
     device = th.device("cuda" if th.cuda.is_available() else "cpu")
-    model = PaveTD3(
+    model = DAMPERUnifiedSAC(
         "MlpPolicy",
         vec_env,
+        learning_rate=3e-4,
+        eta=args.eta,
         verbose=0,
         seed=train_seed,
         device=device,
-        action_noise=action_noise,
-        **PAVE_KWARGS,
     )
 
     model.learn(total_timesteps=max_steps)
@@ -130,15 +122,16 @@ def main() -> None:
         print("warning: training ran past the reserved deadline", file=sys.stderr)
 
     seeds_to_evaluate = validation_seeds[:1] if smoke else validation_seeds
-    episodes = evaluate_policy(env_id, model, seeds_to_evaluate)
+    episodes = evaluate_policy(model, seeds_to_evaluate)
 
     artifact_path = Path("runs") / args.run_name / "results.json"
     artifact_path.parent.mkdir(parents=True, exist_ok=True)
     output = {
-        "env_id": env_id,
-        "backbone": "TD3",
-        "method": "PAVE",
+        "env_id": ENV_ID,
+        "backbone": "SAC",
+        "method": "DAMPER-Unified-SAC",
         "train_seed": train_seed,
+        "eta": args.eta,
         "episodes": episodes,
     }
     with artifact_path.open("w", encoding="utf-8") as handle:

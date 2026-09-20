@@ -157,7 +157,7 @@ alg_args = dict({
         pendulum = dict(),
         walker = dict(),
     ),
-    "rptgs" : dict(
+    "damper" : dict(
         ant = dict(),
         hopper = dict(),
         humanoid = dict(),
