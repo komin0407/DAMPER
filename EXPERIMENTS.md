@@ -47,7 +47,7 @@ Per-environment trainers for every variant, including the unified one
 | train_freq / gradient_steps | 1 / 1 | |
 | activation | **SiLU** | forced inside every DAMPER class |
 | net_arch | SB3 default — TD3 `[400,300]`, SAC `[256,256]` | never overridden |
-| **train seed** | **20260718** | multi-seed runs add: 410580, 922852, 787576, 660993 |
+| **train seed** | **178132, 410580, 922852, 787576, 660993** | |
 
 TD3-only: `policy_delay=2`, `target_policy_noise=0.2`, `target_noise_clip=0.5`,
 exploration noise `NormalActionNoise(mean=0, sigma=0.1)` per action dim.
