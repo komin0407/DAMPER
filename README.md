@@ -4,7 +4,7 @@ Implementation of **DAMPER (Direction-Aware Magnitude-Controlled Projection with
 
 DAMPER reduces action oscillation by combining the native actor gradient with a temporal-consistency gradient. It removes conflicting auxiliary components and adjusts their magnitude through a single interpolation parameter, $\eta \in [0,1]$. The method operates during training; policy execution requires no additional filtering or network components.
 
-[Overview PDF](figures/damper_overview_v4.pdf) · [Method](#method) · [Results](#results) · [Quick start](#quick-start) · [Reproduction](#reproducing-the-experiments)
+[Overview PDF](figures/DAMPER_overview_v4.pdf) · [Method](#method) · [Results](#results) · [Quick start](#quick-start) · [Reproduction](#reproducing-the-experiments)
 
 [![DAMPER overview: native actor and temporal-consistency gradients pass through conflict-conditioned projection and adaptive magnitude control before the actor update.](figures/damper_overview.png)](figures/damper_overview.pdf)
 
