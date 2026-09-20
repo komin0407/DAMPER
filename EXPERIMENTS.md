@@ -39,7 +39,6 @@ Per-environment trainers for every variant, including the unified one
 
 | Parameter | Value | Note |
 |---|---|---|
-| learning_rate | **3e-4** (actor & critic) | passed explicitly (SB3 TD3 default is 1e-3) |
 | batch_size | 256 | SB3 default |
 | buffer_size | 1,000,000 | SB3 default |
 | learning_starts | 100 | SB3 default |
