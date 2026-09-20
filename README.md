@@ -129,7 +129,7 @@ The paper also studies unconditional sum/projection alternatives, a PEGrad-based
 The DAMPER experiment specification uses Python 3.11, PyTorch 2.5.1, Stable-Baselines3 2.5.0, and Gymnasium 1.0.0. MuJoCo is used for locomotion and Reacher; Box2D is needed for LunarLander.
 
 ```bash
-git clone https://github.com/komin0407/DAMPER.git
+git clone 
 cd DAMPER
 
 conda create -n damper python=3.11 -y
